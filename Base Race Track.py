@@ -11,6 +11,9 @@ camera_height = 5
 camera_distance = 5
 track_follow = False
 
+# Day/Night toggle
+is_night = True
+
 # Track parameters
 num_segments = 100
 outer_radius_x = 8.0
@@ -28,6 +31,16 @@ barrier_segments = [15, 45, 75]
 tree_positions = [(random.uniform(8.5, 9.8) * math.cos(2 * math.pi * i / 30),
                    random.uniform(4.5, 5.8) * math.sin(2 * math.pi * i / 30))
                   for i in range(30)]
+
+# Stars parameters
+num_stars = 200
+stars = [(random.uniform(-50, 50), random.uniform(10, 40), random.uniform(-50, 50),
+          random.uniform(0.5, 1.0)) for _ in range(num_stars)]  # x, y, z, brightness
+
+# Cloud parameters
+num_clouds = 15
+clouds = [(random.uniform(-30, 30), random.uniform(15, 25), random.uniform(-30, 30),
+           random.uniform(1.5, 3.0)) for _ in range(num_clouds)]  # x, y, z, size
 
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
@@ -105,15 +118,14 @@ def draw_barrier(x1, z1, x2, z2):
     length = math.sqrt(dx * dx + dz * dz)
     nx, nz = -dz / length * 0.2, dx / length * 0.2
 
-    # Draw barrier 
+  
     glBegin(GL_QUADS)
-    # Front face (drawn first)
     glVertex3f(x1 + nx, 0, z1 + nz)
     glVertex3f(x1 - nx, 0, z1 - nz)
     glVertex3f(x2 - nx, 0, z2 - nz)
     glVertex3f(x2 + nx, 0, z2 + nz)
 
-    # Back face (drawn next)
+    # Back face 
     glVertex3f(x1 + nx, 1.0, z1 + nz)
     glVertex3f(x2 + nx, 1.0, z2 + nz)
     glVertex3f(x2 - nx, 1.0, z2 - nz)
@@ -156,14 +168,69 @@ def draw_tree(x, z):
     glRotatef(-90, 1, 0, 0)
     gluCylinder(gluNewQuadric(), 0.1, 0.1, 0.5, 8, 1)
 
-    # Leaves
-    glColor3f(0.0, 0.39, 0.0)    # Dark green for foliage
+    # leaves
+    glColor3f(0.0, 0.39, 0.0)  # Dark green for foliage
     glTranslatef(0.0, 0.0, 0.8)  # Position above the trunk
-    glScalef(0.8, 0.8, 0.8)      # Scale the cube to look like foliage
-    glutSolidCube(1.0)  
+    glScalef(0.8, 0.8, 0.8)  # Scale the cube to look like foliage
+    glutSolidCube(1.0)
     glPopMatrix()
 
 
+def draw_stars():
+    if not is_night:
+        return
+
+    # Temporarily disable lighting for stars
+    glPushAttrib(GL_LIGHTING_BIT)
+    glDisable(GL_LIGHTING)
+
+    glPointSize(2.0)
+    glBegin(GL_POINTS)
+    for x, y, z, brightness in stars:
+        # varying brightness slightly (twinkling)
+        twinkle = brightness * (0.8 + 0.4 * random.random())
+        glColor3f(twinkle, twinkle, twinkle)  #  tars with varying brightness
+        glVertex3f(x, y, z)
+    glEnd()
+
+    # Restore lighting state
+    glPopAttrib()
+
+
+def draw_clouds():
+    if is_night:
+        return
+
+    glPushAttrib(GL_LIGHTING_BIT)
+    glDisable(GL_LIGHTING)
+
+    for x, y, z, size in clouds:
+        glPushMatrix()
+        glTranslatef(x, y, z)
+
+    
+        glColor3f(1.0, 1.0, 1.0)  # White for clouds
+
+        # Main cloud body
+        glPushMatrix()
+        glScalef(size, size * 0.6, size)
+        glutSolidSphere(1.0, 12, 8)
+        glPopMatrix()
+
+        # Additional smaller puffs
+        offsets = [(1.0, 0.3, 0.0), (-1.0, 0.3, 0.0),
+                   (0.0, 0.3, 1.0), (0.0, 0.3, -1.0)]
+
+        for dx, dy, dz in offsets:
+            glPushMatrix()
+            glTranslatef(dx * size / 2, dy * size / 2, dz * size / 2)
+            glScalef(size * 0.7, size * 0.5, size * 0.7)
+            glutSolidSphere(0.7, 10, 8)
+            glPopMatrix()
+
+        glPopMatrix()
+
+    glPopAttrib()
 
 
 def draw_car():
@@ -185,13 +252,14 @@ def draw_car():
 
 
 def keyboardListener(key, x, y):
-    global track_follow, camera_height, camera_angle, camera_pos
+    global track_follow, camera_height, camera_angle, camera_pos, is_night
 
     if key == b'w': camera_height += 0.5
     if key == b's': camera_height = max(0.5, camera_height - 0.5)
     if key == b'a': camera_angle += 0.1
     if key == b'd': camera_angle -= 0.1
     if key == b'f': track_follow = not track_follow
+    if key == b'n': is_night = not is_night  # Toggle between night and day
     if key == b'r':
         camera_pos = (0, 5, 5)
         camera_angle = 0
@@ -216,6 +284,18 @@ def setupCamera():
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
+    # Update lighting based on day/night setting
+    if is_night:
+        # Night lighting (dimmer, more blue)
+        glLightfv(GL_LIGHT0, GL_AMBIENT, [0.1, 0.1, 0.2, 1.0])
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, [0.6, 0.6, 0.8, 1.0])
+    else:
+        # Day lighting (brighter, more yellow)
+        glLightfv(GL_LIGHT0, GL_AMBIENT, [0.4, 0.4, 0.3, 1.0])
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 0.98, 0.8, 1.0])
+        # Set light position to simulate sunlight
+        glLightfv(GL_LIGHT0, GL_POSITION, [0.5, 1.0, 0.0, 0.0])
+
     x, y, z = camera_pos
     if track_follow:
         gluLookAt(x, y, z, 0, 0, 0, 0, 1, 0)
@@ -226,19 +306,35 @@ def setupCamera():
 
 
 def showScreen():
+    # Set background color based on time of day
+    if is_night:
+        glClearColor(0.0, 0.0, 0.2, 1.0)  # Dark blue for night
+    else:
+        glClearColor(0.53, 0.81, 0.92, 1.0)  # Sky blue for day
+
     glClear(GL_COLOR_BUFFER_BIT)
     glLoadIdentity()
     glViewport(0, 0, 1000, 800)
 
     setupCamera()
 
+    # Draw sky elements first (background)
+    draw_stars()  # Will only draw if is_night is True
+    draw_clouds()  # Will only draw if is_night is False
+
+    
     draw_track()
     draw_barriers()
     draw_trees()
     draw_car()  
 
+    
     draw_text(10, 770, "3D Racing Track (No Depth Buffer)")
-    draw_text(10, 740, "Controls: WASD - Move, F - Follow, R - Reset")
+    draw_text(10, 740, "Controls: WASD - Move, F - Follow, R - Reset, N - Toggle Day/Night")
+
+    # Display current mode
+    mode_text = "Night Mode" if is_night else "Day Mode"
+    draw_text(850, 770, mode_text)
 
     glutSwapBuffers()
 
@@ -250,9 +346,14 @@ def main():
     glutInitWindowPosition(100, 100)
     glutCreateWindow(b"3D Racing Track Without Depth Test")
 
+
+
     # Simple lighting setup
     glEnable(GL_LIGHTING)
     glEnable(GL_LIGHT0)
+
+    # Different lighting for day and night modes
+    # Initial setup is for night mode (will be updated in the display function)
     glLightfv(GL_LIGHT0, GL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
     glLightfv(GL_LIGHT0, GL_DIFFUSE, [0.8, 0.8, 0.8, 1.0])
     glLightfv(GL_LIGHT0, GL_POSITION, [1.0, 1.0, 1.0, 0.0])
