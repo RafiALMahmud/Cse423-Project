@@ -205,7 +205,9 @@ def draw_tree(x, z):
     glPushMatrix()
     glTranslatef(x, 0, z)
 
-    # Draw trunk using cylinder
+    # Draw trunk using cylinder - rotate to make it vertical
+    glRotatef(-90, 1, 0, 0)  # Rotate 90 degrees around X-axis to point up
+
     quadric = gluNewQuadric()
     gluCylinder(quadric, 0.1, 0.1, 0.5, 8, 1)  # base radius, top radius, height, slices, stacks
 
