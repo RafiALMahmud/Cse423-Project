@@ -32,8 +32,11 @@ tree_positions = [(random.uniform(8.5, 9.8) * math.cos(2 * math.pi * i / 30),
                    random.uniform(4.5, 5.8) * math.sin(2 * math.pi * i / 30))
                   for i in range(30)]
 
-# Building/Street light 
+# Building/Street light
 building_positions = tree_positions.copy()
+
+# Cacti positions (reusing the same positions)
+cacti_positions = tree_positions.copy()
 
 # Stars parameters
 num_stars = 200
@@ -46,8 +49,8 @@ clouds = [(random.uniform(-30, 30), random.uniform(15, 25), random.uniform(-30, 
            random.uniform(1.5, 3.0)) for _ in range(num_clouds)]  # x, y, z, size
 
 # Map selection
-current_map = 0  # 0 = nature map, 1 = city map
-map_names = ["Nature Track", "City Track"]
+current_map = 0  # 0 = nature map, 1 = city map, 2 = desert map
+map_names = ["Nature Track", "City Track", "Desert Track"]
 
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
@@ -73,9 +76,12 @@ def draw_track():
     if current_map == 0:
         # Nature map: grass
         glColor3f(0.13, 0.55, 0.13)
-    else:
+    elif current_map == 1:
         # City map: pavement
         glColor3f(0.4, 0.4, 0.4)
+    else:
+        # Desert map: sand
+        glColor3f(0.86, 0.76, 0.46)
 
     glBegin(GL_TRIANGLE_FAN)
     glVertex3f(0, 0, 0)
@@ -130,9 +136,12 @@ def draw_barrier(x1, z1, x2, z2):
     if current_map == 0:
         # Nature map: red barriers
         glColor3f(1.0, 0.0, 0.0)
-    else:
+    elif current_map == 1:
         # City map: yellow and black barriers
         glColor3f(0.9, 0.9, 0.0)
+    else:
+        # Desert map: orange barriers
+        glColor3f(0.8, 0.4, 0.0)
 
     dx, dz = x2 - x1, z2 - z1
     length = math.sqrt(dx * dx + dz * dz)
@@ -192,10 +201,14 @@ def draw_trees():
         # Draw trees in nature map
         for x, z in tree_positions:
             draw_tree(x, z)
-    else:
+    elif current_map == 1:
         # Draw buildings/street lights in city map
         for x, z in building_positions:
             draw_building(x, z)
+    else:
+        # Draw cacti in desert map
+        for x, z in cacti_positions:
+            draw_cactus(x, z)
 
 
 def draw_tree(x, z):
@@ -316,6 +329,71 @@ def draw_building(x, z):
     random.seed()
 
 
+def draw_cactus(x, z):
+    rand_seed = x * 1000 + z  # Use position as random seed for consistent cacti
+    random.seed(rand_seed)
+
+    # Randomize cactus size
+    scale = random.uniform(0.8, 1.2)
+    has_arms = random.random() > 0.3  # 70% chance to have arms
+
+    glPushMatrix()
+    glTranslatef(x, 0, z)
+
+    # Main cactus body
+    glColor3f(0.0, 0.5, 0.0)  # Cactus green
+    glPushMatrix()
+    glRotatef(-90, 1, 0, 0)
+    gluCylinder(gluNewQuadric(), 0.15 * scale, 0.15 * scale, 1.0 * scale, 8, 1)
+
+    # Top of cactus
+    glTranslatef(0, 0, 1.0 * scale)
+    glutSolidSphere(0.15 * scale, 8, 8)
+    glPopMatrix()
+
+    # Add arms if needed
+    if has_arms:
+        arm_heights = [0.4 * scale, 0.7 * scale]
+        arm_angles = [random.uniform(30, 60), random.uniform(-30, -60)]
+        arm_lengths = [random.uniform(0.3, 0.6) * scale, random.uniform(0.3, 0.6) * scale]
+
+        for i in range(2):
+            glPushMatrix()
+            glTranslatef(0, arm_heights[i], 0)
+            glRotatef(arm_angles[i], 0, 0, 1)
+
+            # Arm cylinder
+            glColor3f(0.0, 0.5, 0.0)
+            gluCylinder(gluNewQuadric(), 0.1 * scale, 0.1 * scale, arm_lengths[i], 8, 1)
+
+            # Arm tip
+            glTranslatef(0, 0, arm_lengths[i])
+            glutSolidSphere(0.1 * scale, 8, 8)
+            glPopMatrix()
+
+    # Add spikes
+    glColor3f(0.9, 0.9, 0.7)  # Light yellowish for spikes
+    for i in range(8):
+        angle = i * 45
+
+        # Spikes on main body
+        for h in range(1, 4):
+            height = h * 0.25 * scale
+            glPushMatrix()
+            glTranslatef(0.16 * scale * math.cos(math.radians(angle)),
+                         height,
+                         0.16 * scale * math.sin(math.radians(angle)))
+            glRotatef(90, 0, 1, 0)
+            glRotatef(angle, 1, 0, 0)
+            glutSolidCone(0.01 * scale, 0.08 * scale, 4, 1)
+            glPopMatrix()
+
+    glPopMatrix()
+
+    # Reset the random seed
+    random.seed()
+
+
 def draw_stars():
     if not is_night:
         return
@@ -384,8 +462,10 @@ def draw_car():
     # Car color based on map
     if current_map == 0:
         glColor3f(1.0, 0.0, 0.0)  # Red car for nature map
-    else:
+    elif current_map == 1:
         glColor3f(0.0, 0.3, 0.8)  # Blue car for city map
+    else:
+        glColor3f(0.8, 0.6, 0.0)  # Golden/tan car for desert map
 
     # Car body
     glPushMatrix()
@@ -458,15 +538,18 @@ def setupCamera():
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
-    # Update lighting based on day/night setting
+    # Update lighting based on day/night and map settings
     if is_night:
         # Night lighting (dimmer, more blue)
         glLightfv(GL_LIGHT0, GL_AMBIENT, [0.1, 0.1, 0.2, 1.0])
         glLightfv(GL_LIGHT0, GL_DIFFUSE, [0.6, 0.6, 0.8, 1.0])
     else:
-        # Day lighting (brighter, more yellow)
-        glLightfv(GL_LIGHT0, GL_AMBIENT, [0.4, 0.4, 0.3, 1.0])
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 0.98, 0.8, 1.0])
+        if current_map == 2:  # Desert day lighting (brighter, more yellow/orange)
+            glLightfv(GL_LIGHT0, GL_AMBIENT, [0.5, 0.4, 0.2, 1.0])
+            glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 0.9, 0.7, 1.0])
+        else:  # Regular day lighting
+            glLightfv(GL_LIGHT0, GL_AMBIENT, [0.4, 0.4, 0.3, 1.0])
+            glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 0.98, 0.8, 1.0])
         # Set light position to simulate sunlight
         glLightfv(GL_LIGHT0, GL_POSITION, [0.5, 1.0, 0.0, 0.0])
 
@@ -480,11 +563,14 @@ def setupCamera():
 
 
 def showScreen():
-    # Set background color based on time of day
+    # Set background color based on time of day and map
     if is_night:
         glClearColor(0.0, 0.0, 0.2, 1.0)  # Dark blue for night
     else:
-        glClearColor(0.53, 0.81, 0.92, 1.0)  # Sky blue for day
+        if current_map == 2:  # Desert sky is more pale/hazy
+            glClearColor(0.85, 0.80, 0.75, 1.0)  # Pale sandy sky for desert day
+        else:
+            glClearColor(0.53, 0.81, 0.92, 1.0)  # Sky blue for regular day
 
     glClear(GL_COLOR_BUFFER_BIT)
     glLoadIdentity()
@@ -498,7 +584,7 @@ def showScreen():
 
     draw_track()
     draw_barriers()
-    draw_trees()  # Will draw either trees or buildings based on current_map
+    draw_trees()  # Will draw either trees, buildings, or cacti based on current_map
     draw_car()
 
     draw_text(10, 770, f"3D Racing Track - {map_names[current_map]} (No Depth Buffer)")
