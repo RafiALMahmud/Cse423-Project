@@ -4,7 +4,7 @@ from OpenGL.GLU import *
 import math
 import random
 
-# Camera-related variables
+# Camera
 camera_pos = (0, 5, 5)
 camera_angle = 0
 camera_height = 5
@@ -32,6 +32,9 @@ tree_positions = [(random.uniform(8.5, 9.8) * math.cos(2 * math.pi * i / 30),
                    random.uniform(4.5, 5.8) * math.sin(2 * math.pi * i / 30))
                   for i in range(30)]
 
+# Building/Street light 
+building_positions = tree_positions.copy()
+
 # Stars parameters
 num_stars = 200
 stars = [(random.uniform(-50, 50), random.uniform(10, 40), random.uniform(-50, 50),
@@ -41,6 +44,10 @@ stars = [(random.uniform(-50, 50), random.uniform(10, 40), random.uniform(-50, 5
 num_clouds = 15
 clouds = [(random.uniform(-30, 30), random.uniform(15, 25), random.uniform(-30, 30),
            random.uniform(1.5, 3.0)) for _ in range(num_clouds)]  # x, y, z, size
+
+# Map selection
+current_map = 0  # 0 = nature map, 1 = city map
+map_names = ["Nature Track", "City Track"]
 
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
@@ -62,8 +69,14 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
 
 
 def draw_track():
-    # grass
-    glColor3f(0.13, 0.55, 0.13)
+    # Draw ground based on current map
+    if current_map == 0:
+        # Nature map: grass
+        glColor3f(0.13, 0.55, 0.13)
+    else:
+        # City map: pavement
+        glColor3f(0.4, 0.4, 0.4)
+
     glBegin(GL_TRIANGLE_FAN)
     glVertex3f(0, 0, 0)
     for i in range(num_segments + 1):
@@ -113,19 +126,26 @@ def draw_barriers():
 
 
 def draw_barrier(x1, z1, x2, z2):
-    glColor3f(1.0, 0.0, 0.0)
+    # Change barrier color based on map
+    if current_map == 0:
+        # Nature map: red barriers
+        glColor3f(1.0, 0.0, 0.0)
+    else:
+        # City map: yellow and black barriers
+        glColor3f(0.9, 0.9, 0.0)
+
     dx, dz = x2 - x1, z2 - z1
     length = math.sqrt(dx * dx + dz * dz)
     nx, nz = -dz / length * 0.2, dx / length * 0.2
 
-  
     glBegin(GL_QUADS)
+    # Front face
     glVertex3f(x1 + nx, 0, z1 + nz)
     glVertex3f(x1 - nx, 0, z1 - nz)
     glVertex3f(x2 - nx, 0, z2 - nz)
     glVertex3f(x2 + nx, 0, z2 + nz)
 
-    # Back face 
+    # Back face
     glVertex3f(x1 + nx, 1.0, z1 + nz)
     glVertex3f(x2 + nx, 1.0, z2 + nz)
     glVertex3f(x2 - nx, 1.0, z2 - nz)
@@ -154,10 +174,28 @@ def draw_barrier(x1, z1, x2, z2):
     glVertex3f(x2 + nx, 1.0, z2 + nz)
     glEnd()
 
+    # Add stripes to city barriers
+    if current_map == 1:
+        glColor3f(0.0, 0.0, 0.0)  # Black stripes
+        glBegin(GL_LINES)
+        for i in range(5):
+            t = i / 4.0
+            stripe_x1 = x1 + t * (x2 - x1)
+            stripe_z1 = z1 + t * (z2 - z1)
+            glVertex3f(stripe_x1 + nx, 0.5, stripe_z1 + nz)
+            glVertex3f(stripe_x1 - nx, 0.5, stripe_z1 - nz)
+        glEnd()
+
 
 def draw_trees():
-    for x, z in tree_positions:
-        draw_tree(x, z)
+    if current_map == 0:
+        # Draw trees in nature map
+        for x, z in tree_positions:
+            draw_tree(x, z)
+    else:
+        # Draw buildings/street lights in city map
+        for x, z in building_positions:
+            draw_building(x, z)
 
 
 def draw_tree(x, z):
@@ -176,6 +214,108 @@ def draw_tree(x, z):
     glPopMatrix()
 
 
+def draw_building(x, z):
+    rand_seed = x * 1000 + z  # Use position as random seed for consistent buildings
+    random.seed(rand_seed)
+
+    height = random.uniform(1.0, 3.0)
+    width = random.uniform(0.3, 0.7)
+
+    # 50% chance to draw building, 50% chance to draw street light
+    if random.random() > 0.5:
+        # Building
+        # Base color for the building
+        r = random.uniform(0.4, 0.8)
+        g = random.uniform(0.4, 0.8)
+        b = random.uniform(0.4, 0.8)
+
+        glPushMatrix()
+        glTranslatef(x, 0, z)
+
+        # Main building
+        glColor3f(r, g, b)
+        glPushMatrix()
+        glScalef(width, height, width)
+        glTranslatef(0, 0.5, 0)  # Move up so bottom is at y=0
+        glutSolidCube(1.0)
+        glPopMatrix()
+
+        # Windows
+        glColor3f(0.9, 0.9, 0.0)  # Yellow windows
+        window_size = 0.1
+        window_gap = 0.2
+        num_floors = int(height / window_gap)
+
+        for floor in range(num_floors):
+            y_pos = (floor + 0.5) * window_gap
+
+            # Front windows
+            for i in range(2):
+                x_pos = (i - 0.5) * window_gap * 2
+                glPushMatrix()
+                glTranslatef(x_pos, y_pos, width / 2 + 0.01)
+                glScalef(window_size, window_size, 0.01)
+                glutSolidCube(1.0)
+                glPopMatrix()
+
+            # Back windows
+            for i in range(2):
+                x_pos = (i - 0.5) * window_gap * 2
+                glPushMatrix()
+                glTranslatef(x_pos, y_pos, -width / 2 - 0.01)
+                glScalef(window_size, window_size, 0.01)
+                glutSolidCube(1.0)
+                glPopMatrix()
+
+            # Side windows
+            for i in range(2):
+                z_pos = (i - 0.5) * window_gap * 2
+                glPushMatrix()
+                glTranslatef(width / 2 + 0.01, y_pos, z_pos)
+                glScalef(0.01, window_size, window_size)
+                glutSolidCube(1.0)
+                glPopMatrix()
+
+                glPushMatrix()
+                glTranslatef(-width / 2 - 0.01, y_pos, z_pos)
+                glScalef(0.01, window_size, window_size)
+                glutSolidCube(1.0)
+                glPopMatrix()
+
+        glPopMatrix()
+    else:
+        # Street light
+        glPushMatrix()
+        glTranslatef(x, 0, z)
+
+        # Pole
+        glColor3f(0.2, 0.2, 0.2)  # Dark gray
+        glPushMatrix()
+        glRotatef(-90, 1, 0, 0)
+        gluCylinder(gluNewQuadric(), 0.05, 0.05, 1.5, 8, 1)
+        glPopMatrix()
+
+        # Light fixture
+        glColor3f(0.3, 0.3, 0.3)  # Slightly lighter gray
+        glPushMatrix()
+        glTranslatef(0, 1.5, 0)
+        glScalef(0.2, 0.1, 0.2)
+        glutSolidCube(1.0)
+        glPopMatrix()
+
+        # Light
+        glColor3f(1.0, 1.0, 0.7)  # Warm yellow light
+        glPushMatrix()
+        glTranslatef(0, 1.4, 0)
+        glutSolidSphere(0.1, 8, 8)
+        glPopMatrix()
+
+        glPopMatrix()
+
+    # Reset the random seed
+    random.seed()
+
+
 def draw_stars():
     if not is_night:
         return
@@ -187,9 +327,9 @@ def draw_stars():
     glPointSize(2.0)
     glBegin(GL_POINTS)
     for x, y, z, brightness in stars:
-        # varying brightness slightly (twinkling)
+        # varying brightness slightly
         twinkle = brightness * (0.8 + 0.4 * random.random())
-        glColor3f(twinkle, twinkle, twinkle)  #  tars with varying brightness
+        glColor3f(twinkle, twinkle, twinkle)  # White stars with varying brightness
         glVertex3f(x, y, z)
     glEnd()
 
@@ -208,7 +348,6 @@ def draw_clouds():
         glPushMatrix()
         glTranslatef(x, y, z)
 
-    
         glColor3f(1.0, 1.0, 1.0)  # White for clouds
 
         # Main cloud body
@@ -241,9 +380,42 @@ def draw_car():
     glPushMatrix()
     glTranslatef(track_x, track_height + 0.1, track_z)
     glRotatef(math.atan2(math.cos(angle), -math.sin(angle)) * 180 / math.pi, 0, 1, 0)
-    glColor3f(1.0, 0.0, 0.0)
+
+    # Car color based on map
+    if current_map == 0:
+        glColor3f(1.0, 0.0, 0.0)  # Red car for nature map
+    else:
+        glColor3f(0.0, 0.3, 0.8)  # Blue car for city map
+
+    # Car body
+    glPushMatrix()
     glScalef(0.4, 0.1, 0.2)
     glutSolidCube(1.0)
+    glPopMatrix()
+
+    # Car top
+    glPushMatrix()
+    glTranslatef(0, 0.1, 0)
+    glScalef(0.2, 0.1, 0.18)
+    glutSolidCube(1.0)
+    glPopMatrix()
+
+    # Wheels
+    glColor3f(0.2, 0.2, 0.2)
+    wheel_positions = [
+        (0.15, -0.05, 0.12),
+        (0.15, -0.05, -0.12),
+        (-0.15, -0.05, 0.12),
+        (-0.15, -0.05, -0.12)
+    ]
+
+    for wheel_x, wheel_y, wheel_z in wheel_positions:
+        glPushMatrix()
+        glTranslatef(wheel_x, wheel_y, wheel_z)
+        glRotatef(90, 0, 1, 0)
+        gluCylinder(gluNewQuadric(), 0.05, 0.05, 0.02, 8, 1)
+        glPopMatrix()
+
     glPopMatrix()
 
     if track_follow:
@@ -252,7 +424,7 @@ def draw_car():
 
 
 def keyboardListener(key, x, y):
-    global track_follow, camera_height, camera_angle, camera_pos, is_night
+    global track_follow, camera_height, camera_angle, camera_pos, current_map, is_night
 
     if key == b'w': camera_height += 0.5
     if key == b's': camera_height = max(0.5, camera_height - 0.5)
@@ -265,6 +437,8 @@ def keyboardListener(key, x, y):
         camera_angle = 0
         camera_height = 5
         track_follow = False
+    if key == b'm':  # Toggle map
+        current_map = (current_map + 1) % len(map_names)
 
 
 def specialKeyListener(key, x, y):
@@ -322,15 +496,13 @@ def showScreen():
     draw_stars()  # Will only draw if is_night is True
     draw_clouds()  # Will only draw if is_night is False
 
-    
     draw_track()
     draw_barriers()
-    draw_trees()
-    draw_car()  
+    draw_trees()  # Will draw either trees or buildings based on current_map
+    draw_car()
 
-    
-    draw_text(10, 770, "3D Racing Track (No Depth Buffer)")
-    draw_text(10, 740, "Controls: WASD - Move, F - Follow, R - Reset, N - Toggle Day/Night")
+    draw_text(10, 770, f"3D Racing Track - {map_names[current_map]} (No Depth Buffer)")
+    draw_text(10, 740, "Controls: WASD - Move, F - Follow, R - Reset, M - Toggle Map, N - Toggle Day/Night")
 
     # Display current mode
     mode_text = "Night Mode" if is_night else "Day Mode"
@@ -346,14 +518,9 @@ def main():
     glutInitWindowPosition(100, 100)
     glutCreateWindow(b"3D Racing Track Without Depth Test")
 
-
-
     # Simple lighting setup
     glEnable(GL_LIGHTING)
     glEnable(GL_LIGHT0)
-
-    # Different lighting for day and night modes
-    # Initial setup is for night mode (will be updated in the display function)
     glLightfv(GL_LIGHT0, GL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
     glLightfv(GL_LIGHT0, GL_DIFFUSE, [0.8, 0.8, 0.8, 1.0])
     glLightfv(GL_LIGHT0, GL_POSITION, [1.0, 1.0, 1.0, 0.0])
