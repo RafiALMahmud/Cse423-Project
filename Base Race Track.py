@@ -49,7 +49,7 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
 
 
 def draw_track():
-    # Draw grass
+    # grass
     glColor3f(0.13, 0.55, 0.13)
     glBegin(GL_TRIANGLE_FAN)
     glVertex3f(0, 0, 0)
@@ -58,7 +58,7 @@ def draw_track():
         glVertex3f(grass_radius_x * math.cos(angle), 0, grass_radius_y * math.sin(angle))
     glEnd()
 
-    # Draw track surface
+    # track surface
     glColor3f(0.1, 0.1, 0.1)
     glBegin(GL_QUAD_STRIP)
     for i in range(num_segments + 1):
@@ -67,7 +67,7 @@ def draw_track():
         glVertex3f(inner_radius_x * math.cos(angle), track_height, inner_radius_y * math.sin(angle))
     glEnd()
 
-    # Draw track lines
+    # track lines
     glColor3f(1.0, 1.0, 1.0)
     glLineWidth(2.0)
     glBegin(GL_LINES)
@@ -105,7 +105,7 @@ def draw_barrier(x1, z1, x2, z2):
     length = math.sqrt(dx * dx + dz * dz)
     nx, nz = -dz / length * 0.2, dx / length * 0.2
 
-    # Draw barrier without depth testing by carefully ordering polygons
+    # Draw barrier 
     glBegin(GL_QUADS)
     # Front face (drawn first)
     glVertex3f(x1 + nx, 0, z1 + nz)
@@ -149,14 +149,14 @@ def draw_trees():
 
 
 def draw_tree(x, z):
-    #trunk
+    # trunk
     glColor3f(0.545, 0.271, 0.075)
     glPushMatrix()
     glTranslatef(x, 0, z)
     glRotatef(-90, 1, 0, 0)
     gluCylinder(gluNewQuadric(), 0.1, 0.1, 0.5, 8, 1)
 
-    # Draw foliage (drawn after trunk)
+    # Leaves
     glColor3f(0.0, 0.39, 0.0)    # Dark green for foliage
     glTranslatef(0.0, 0.0, 0.8)  # Position above the trunk
     glScalef(0.8, 0.8, 0.8)      # Scale the cube to look like foliage
@@ -232,11 +232,10 @@ def showScreen():
 
     setupCamera()
 
-    # Draw scene in careful order to simulate depth
     draw_track()
     draw_barriers()
     draw_trees()
-    draw_car()  # Drawn last so it appears on top
+    draw_car()  
 
     draw_text(10, 770, "3D Racing Track (No Depth Buffer)")
     draw_text(10, 740, "Controls: WASD - Move, F - Follow, R - Reset")
