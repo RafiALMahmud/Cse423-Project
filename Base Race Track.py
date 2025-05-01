@@ -35,7 +35,7 @@ tree_positions = [(random.uniform(8.5, 9.8) * math.cos(2 * math.pi * i / 30),
 # Building/Street light
 building_positions = tree_positions.copy()
 
-# Cacti positions (reusing the same positions)
+# Cacti positions
 cacti_positions = tree_positions.copy()
 
 # Stars parameters
