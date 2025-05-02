@@ -35,7 +35,7 @@ tree_positions = [(random.uniform(8.5, 9.8) * math.cos(2 * math.pi * i / 30),
 # Building/Street light
 building_positions = tree_positions.copy()
 
-# Cacti positions
+# Cacti positions (reusing the same positions)
 cacti_positions = tree_positions.copy()
 
 # Stars parameters
@@ -604,14 +604,6 @@ def main():
     glutInitWindowPosition(100, 100)
     glutCreateWindow(b"3D Racing Track Without Depth Test")
 
-    # Simple lighting setup
-    glEnable(GL_LIGHTING)
-    glEnable(GL_LIGHT0)
-    glLightfv(GL_LIGHT0, GL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, [0.8, 0.8, 0.8, 1.0])
-    glLightfv(GL_LIGHT0, GL_POSITION, [1.0, 1.0, 1.0, 0.0])
-    glEnable(GL_COLOR_MATERIAL)
-    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
 
     glutDisplayFunc(showScreen)
     glutKeyboardFunc(keyboardListener)
